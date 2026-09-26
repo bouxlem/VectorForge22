@@ -22,37 +22,33 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # البحث عن ملف gradlew وإعطائه الصلاحية أو إنشاؤه إن لم يكن موجوداً
+      # 1. إنشاء ملف .env.example وهمي ليتجاوز Gradle الخطأ
+      - name: Create missing .env.example file
+        run: |
+          touch vectorforge2/.env.example
+          touch vectorforge2/.env
+
+      # 2. تجهيز Gradle Wrapper
       - name: Prepare Gradle Wrapper
         run: |
-          # البحث عن مكان gradlew داخل المستودع
           GRADLEW_PATH=$(find . -maxdepth 3 -name "gradlew" -print -quit)
-          
           if [ -n "$GRADLEW_PATH" ]; then
-            echo "Found gradlew at: $GRADLEW_PATH"
             chmod +x "$GRADLEW_PATH"
           else
-            echo "gradlew not found, generating wrapper..."
-            # البحث عن المجلد الذي يحتوي على app أو build.gradle.kts
-            PROJECT_DIR=$(find . -maxdepth 2 -name "build.gradle.kts" -o -name "build.gradle" | head -n 1 | xargs dirname)
-            if [ -n "$PROJECT_DIR" ]; then
-              cd "$PROJECT_DIR"
-            fi
+            cd vectorforge2
             gradle wrapper
             chmod +x gradlew
           fi
 
-      # بناء ملف الـ APK
+      # 3. بناء الـ APK
       - name: Build Debug APK
         run: |
-          GRADLEW_PATH=$(find . -maxdepth 3 -name "gradlew" -print -quit)
-          PROJECT_DIR=$(dirname "$GRADLEW_PATH")
-          cd "$PROJECT_DIR"
+          cd vectorforge2
           ./gradlew assembleDebug --stacktrace
 
-      # رفع ملف الـ APK النامج
+      # 4. رفع الـ APK المبنّي
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: VectorForge-Debug-APK
-          path: '**/build/outputs/apk/debug/*.apk'
+          path: vectorforge2/app/build/outputs/apk/debug/app-debug.apk
