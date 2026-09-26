@@ -21,21 +21,38 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
 
-      # 1. التوجه لمجلد vectorforge2 وإعطاء تصريح التشغيل
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-        working-directory: vectorforge2
+      # البحث عن ملف gradlew وإعطائه الصلاحية أو إنشاؤه إن لم يكن موجوداً
+      - name: Prepare Gradle Wrapper
+        run: |
+          # البحث عن مكان gradlew داخل المستودع
+          GRADLEW_PATH=$(find . -maxdepth 3 -name "gradlew" -print -quit)
+          
+          if [ -n "$GRADLEW_PATH" ]; then
+            echo "Found gradlew at: $GRADLEW_PATH"
+            chmod +x "$GRADLEW_PATH"
+          else
+            echo "gradlew not found, generating wrapper..."
+            # البحث عن المجلد الذي يحتوي على app أو build.gradle.kts
+            PROJECT_DIR=$(find . -maxdepth 2 -name "build.gradle.kts" -o -name "build.gradle" | head -n 1 | xargs dirname)
+            if [ -n "$PROJECT_DIR" ]; then
+              cd "$PROJECT_DIR"
+            fi
+            gradle wrapper
+            chmod +x gradlew
+          fi
 
-      # 2. بناء الـ APK من داخل مجلد vectorforge2
+      # بناء ملف الـ APK
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
-        working-directory: vectorforge2
+        run: |
+          GRADLEW_PATH=$(find . -maxdepth 3 -name "gradlew" -print -quit)
+          PROJECT_DIR=$(dirname "$GRADLEW_PATH")
+          cd "$PROJECT_DIR"
+          ./gradlew assembleDebug --stacktrace
 
-      # 3. العثور على الـ APK المبنّي ورفعه
+      # رفع ملف الـ APK النامج
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: VectorForge-Debug-APK
-          path: vectorforge2/app/build/outputs/apk/debug/app-debug.apk
+          path: '**/build/outputs/apk/debug/*.apk'
